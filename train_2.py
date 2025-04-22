@@ -11,7 +11,7 @@ from dataset import create_datasets
 from metrics import get_metrics_func
 
 
-EPOCHS = 1
+EPOCHS = 2
 
 def main():
     # Initialize Accelerator with your FSDP config automatically loaded
@@ -100,14 +100,18 @@ def main():
     )
 
     # Prepare everything with accelerator
-    model = accelerator.prepare(model)
+    model, optimizer, lr_scheduler, train_dataloader, eval_dataloader = accelerator.prepare(
+        model, optimizer, lr_scheduler, train_dataloader, eval_dataloader
+    )
 
     
-    progress_bar = tqdm(range(num_training_steps), disable=not accelerator.is_local_main_process)
 
     for epoch in range(EPOCHS):
         
+        progress_bar = tqdm(range(len(train_dataloader)), disable=not accelerator.is_local_main_process)
+        
         model.train()
+        
         for batch in train_dataloader:
             # Move batch to device handled by accelerator
             # batch = {k: v.to(accelerator.device) for k, v in batch.items() if k in ["input_ids", "attention_mask"]}
@@ -122,7 +126,9 @@ def main():
             progress_bar.update(1)
             progress_bar.set_postfix(loss=loss.item())
             
+        
         model.eval()
+        
         for batch in eval_dataloader:
             
             outputs = model(**batch)
