@@ -137,7 +137,8 @@ def main():
         if accelerator.is_main_process:
             accelerator.wait_for_everyone()
             unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(f"fsdp_finetuned_model_{epoch}", save_function=accelerator.save)
+            # unwrapped_model.save_pretrained(f"fsdp_finetuned_model_{epoch}", save_function=accelerator.save)
+            unwrapped_model.save_pretrained(f"finetuned_model_{epoch}")
             
 
 # def main():

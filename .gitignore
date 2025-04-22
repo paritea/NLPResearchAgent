@@ -7,3 +7,5 @@ data.zip
 fsdp_finetuned*
 token-1
 *.ipynb
+
+*finetuned_model_*

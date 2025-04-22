@@ -1,0 +1,30 @@
+Question: Existing works mainly focus on assuring the quality of LLM from the model level, security assurance for the entire LLM SC is ignored. A comprehensive understanding of the entire processes of LLM system construction (the LLM supply chain) is crucial but relevant works are limited.
+Answer:  Prompted by LLM-SCE in a two-stage chain, this paper identifies a few key insights that can lead to better LLM system construction and prompt engineering, and recommends solutions for achieving consistency and correctness of the model.
+
+Ground truth: We take the first step to discuss the potential security risks in each component as well as the integration between components of LLM SC, summarizing 12 security-related risks and providing promising guidance to help build safer LLM systems.
+
+Question: Collecting diverse human opinions is costly and challenging, leading to the exploitation of large language models (LLMs) for generating diverse data.
+Answer:  Establish a model that learns from diverse opinions and assesses its performance in fine-tuning task conditions.
+
+Ground truth: Introduce a criteria-based prompting technique to ground diverse opinions and employ a step-by-step recall prompting to generate more outputs from the model iteratively.
+
+Question: Improving the quality of question titles in Stack Overflow question posts is crucial for timely help, but initial studies have ignored the problem descriptions, leading to inaccurate title generation.
+Answer:  provide a few example answers to improve the quality of question title generation by integrating prompt generation with question-answer generation—providing a few examples of commonsense and commonsense examples.
+
+Ground truth: Introduce SOTitle+, a multi-task learning approach that considers bi-modal information (code snippets and problem descriptions) and fine-tunes a pre-trained language model with hybrid prompts to generate high-quality titles.
+
+Question: Prompt engineering remains a significant challenge for end users due to rapid advances in large language models, tasks, and best practices.
+Answer:  Provide a few sample prompts for end users to explore, combining expert knowledge and a few exemplar datasets from various domains to generate a comprehensive model.
+
+Ground truth: Automatic Prompt Optimization (APO) techniques aim to improve LLM performance using automated methods, and this paper presents a comprehensive survey of the current state and challenges in this field.
+
+Question: Current LLM alignment methods are vulnerable to adversarial prompts, but crafting these prompts using discrete optimization is computationally expensive and unsuitable for large-scale analyses.
+Answer:  Use a chain of inference agents to improve the accuracy of LLM alignment, leveraging a large-scale dataset and a large-scale LLM-based optimization framework.
+
+Ground truth: Revisit Projected Gradient Descent (PGD) on the continuously relaxed input prompt to improve the efficacy of adversarial attacks on LLMs while reducing computational cost.
+
+Question: The current evaluation frameworks for large language models (LLMs) are plagued by issues such as test set leakage, prompt format overfitting, and extraction errors, which can lead to unreliable evaluations.
+Answer:  Matching LLMs to test set leakage, prompt format overfitting, and extraction errors, using a cross-validation approach with the large language model (LLM) to test the effectiveness of various methods.
+
+Ground truth: Introduce xFinder, a novel evaluator for answer extraction and matching in LLM evaluation, which optimizes the key answer extraction module to improve extraction accuracy and enhance evaluation reliability.
+
