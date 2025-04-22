@@ -7,13 +7,7 @@ import json
 from tqdm import tqdm
 
 TAGS = [
-    # "prompt%20optimization"
-    # "llm%20hallucinations"
-    # "bias%20detection"
-    # "safety%20llm"
-    # "llm%20prompt%20optimization%20engineering%20hallucinations%20reasoning"
-    # "llm%20prompt"
-    "prompt",
+    "llm%20prompt%20optimization"
     ]
 MAX_RESULTS = 100000
 BASE_URL = "http://export.arxiv.org/api/query?search_query="
