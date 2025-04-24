@@ -8,7 +8,8 @@ from tqdm import tqdm
 
 TAGS = [
     "llm%20prompt%20optimization"
-    ]
+]
+
 MAX_RESULTS = 100000
 BASE_URL = "http://export.arxiv.org/api/query?search_query="
 PDF_DIR = "pdfs"
@@ -42,6 +43,7 @@ def fetch_papers(tag, total_results=100000, batch_size=1000):
     for start in range(0, total_results, batch_size):
         print(f"Fetching {tag}: {start}–{start+batch_size}")
         query = f"{BASE_URL}all:{tag}&start={start}&max_results={batch_size}"
+        print(query)
         feed = feedparser.parse(query)
         for entry in feed.entries:
             pdf_link = entry.link.replace("abs", "pdf") + ".pdf"
@@ -58,6 +60,7 @@ def fetch_papers(tag, total_results=100000, batch_size=1000):
             })
         if len(feed.entries) < batch_size:
             break  # End of results
+    
     return all_papers
 
 
@@ -94,8 +97,14 @@ def main():
         print(f"\n🔍 Fetching papers for tag: {tag}")
         temp_papers = fetch_papers(tag)
         
+        print("Downloading papers... ")
+        
+        progress_bar = tqdm(range(len(temp_papers)))
+        
         for i, p in enumerate(temp_papers):
             papers.append({'paper_id': i, **p})
+            # download_pdf(p)
+            progress_bar.update(1)
     
     print(f"\n✅ Parsed {len(papers)} papers.")
     return papers

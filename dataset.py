@@ -1,16 +1,22 @@
-from datasets import load_dataset
+import torch
+import datasets
+from datasets import load_dataset, Split
 
+hf_data_cache = 'hf_data_cache'
 
-def create_datasets(tokenizer):
+def create_dataset(tokenizer, split='train'):
 
-    # Example Dataset (replace with your own)
-    # Dataset must have fields: "text1" (question) and "text2" (answer)
-    root_dir = '/scratch1/asm6590/NLP_Research_Agent/'
-    data_cache = root_dir + 'hf_data'
+    dataset = None
     
-    dataset = load_dataset("csv", 
-                        data_files={"train": root_dir + "data/train.csv", "validation": root_dir + "data/validation.csv"},
-                        cache_dir=data_cache)
+    if split == 'train':
+        dataset = load_dataset(
+            "csv", data_files={"train": "data/train.csv"}, cache_dir=hf_data_cache
+        )[split]
+    elif split == 'validation':
+        dataset = load_dataset(
+            "csv", data_files={"validation": "data/validation.csv"},  cache_dir=hf_data_cache
+        )[split]
+    
 
     # Preprocessing
     def __preprocess(example):
@@ -25,3 +31,20 @@ def create_datasets(tokenizer):
     tokenized_ds = dataset.map(__preprocess, batched=False, remove_columns=['Unnamed: 0', 'problem', 'approach'])
     
     return tokenized_ds
+
+
+def data_collator(batch):
+    
+    input_ids = [each['input_ids'] for each in batch]
+    attention_mask = [each['attention_mask'] for each in batch]
+    labels = [each['labels'] for each in batch]
+    
+    input_ids = torch.tensor(input_ids) 
+    attention_mask = torch.tensor(attention_mask) 
+    labels = torch.tensor(labels) 
+    
+    return {
+        'input_ids': input_ids,
+        'attention_mask': attention_mask,
+        'labels': labels
+    }

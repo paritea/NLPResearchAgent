@@ -1,11 +1,12 @@
 __pycache__
-hf_models/
-hf_data/
-results-lora/
+hf_model_cache/
+hf_data_cache/
+finetuned/
 data/
 data.zip
-fsdp_finetuned*
-token-1
+token*
 *.ipynb
 
 *finetuned_model_*
+
+pdfs/
