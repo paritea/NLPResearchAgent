@@ -1,0 +1,5 @@
+Gemma:
+    Q-Lora : 2.47
+    Lora : 6.37
+    SFT : 9.42
+

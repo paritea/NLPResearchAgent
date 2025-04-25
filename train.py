@@ -1,100 +1,137 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    
 import torch
-torch.cuda.set_device(0)
-
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, DataCollatorForLanguageModeling
-from datasets import load_dataset
+import argparse
+from transformers import (
+    AutoTokenizer, AutoModelForCausalLM, get_scheduler, 
+    BitsAndBytesConfig
+)
+from torch.utils.data import DataLoader
+from torch.optim import AdamW
+from torch.utils.tensorboard import SummaryWriter
+from tqdm.auto import tqdm
 from peft import get_peft_model, LoraConfig, TaskType
-import evaluate
-import numpy as np
 
-# Model checkpoint
-model_name = "google/gemma-3-1b-it"
-
-# Load tokenizer and model
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-tokenizer.pad_token = tokenizer.eos_token  # for GPT-like models
+from dataset import create_dataset, data_collator
 
 
+model_cache = './hf_model_cache'
+os.makedirs('finetuned', exist_ok=True)
+finetuned_ckpt_path = "finetuned/{model}_{method}_epoch-{epoch}"
 
-model = AutoModelForCausalLM.from_pretrained(model_name)
+EPOCHS = 3
+INITIAL_LR = 5e-5
+BATCH_SIZE = 8
 
-# Enable LoRA
-peft_config = LoraConfig(
-    task_type=TaskType.CAUSAL_LM,
-    r=8,
-    lora_alpha=16,
-    lora_dropout=0.1,
-    bias="none"
-)
-model = get_peft_model(model, peft_config)
+def main(args):
+    # Single-GPU training
+    
+    model_name = args.model_name
+    finetune_method = args.finetune_method
+    device = torch.device(f"cuda:{args.gpu_id}")
+    
+    print("Training Info: ", model_name, finetune_method, device)
+    
+    # Load tokenizer, model, data
+    tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=model_cache)
+    tokenizer.pad_token = tokenizer.eos_token 
 
-# Example Dataset (replace with your own)
-# Dataset must have fields: "text1" (question) and "text2" (answer)
-dataset = load_dataset("json", data_files={"train": "train.json", "validation": "val.json"})
+    model_kwargs = {}
+    if finetune_method == 'qlora':
+        model_kwargs['quantization_config'] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",  # or "fp4"
+            bnb_4bit_compute_dtype=torch.float16  # or torch.float16 if needed
+        )
+    if model_name == "google/gemma-3-1b-it":
+        model_kwargs['attn_implementation'] = "eager"
+        
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        cache_dir=model_cache,
+        low_cpu_mem_usage=True,
+        **model_kwargs
+    )
+    
+    train_ds_tokenized = create_dataset(tokenizer, split='train')
+    train_dataloader = DataLoader(
+        train_ds_tokenized, 
+        batch_size=BATCH_SIZE, 
+        shuffle=True, 
+        collate_fn=data_collator
+    )
+    
+    # Setup finetuning
+    if finetune_method == 'sft':
+        model.to(device)
+    elif finetune_method in ['lora', 'qlora']:
+        # Peft model
+        peft_config = LoraConfig(
+            r=8,
+            lora_alpha=32,
+            target_modules=["c_attn", "q_proj", "v_proj"],  # update for your model
+            lora_dropout=0.1,
+            bias="none",
+            task_type=TaskType.CAUSAL_LM
+        )
 
-# Preprocessing
-def preprocess(example):
-    input_text = "Question: " + example["text1"] + "\nAnswer:"
-    target_text = example["text2"]
-    full_text = input_text + " " + target_text
+        model = get_peft_model(model, peft_config)
+        model.to(device)   
+    
+    
+    # Optimizer and learning rate scheduler
+    optimizer = AdamW(model.parameters(), lr=INITIAL_LR)
+    num_training_steps = len(train_dataloader) * EPOCHS 
 
-    inputs = tokenizer(full_text, truncation=True, padding="max_length", max_length=512)
-    inputs["labels"] = inputs["input_ids"].copy()
-    return inputs
+    lr_scheduler = get_scheduler(
+        "linear",
+        optimizer=optimizer,
+        num_warmup_steps=0,
+        num_training_steps=num_training_steps
+    )
+    
+    writer = SummaryWriter(log_dir=f"train_logs/{model_name.split('/')[1]}_{finetune_method}")
 
-tokenized_ds = dataset.map(preprocess, batched=False)
+    for epoch in range(EPOCHS):
+        
+        print(f"Epoch: {epoch}")
+        progress_bar = tqdm(range(len(train_dataloader)))
+        
+        model.train()
+        
+        for batch in train_dataloader:
+            
+            batch = {k: v.to(device) for k, v in batch.items()}
+            
+            outputs = model(**batch)
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad()
+            
+            writer.add_scalar("train/loss", loss.item(), epoch)
+            
+            progress_bar.update(1)
+            progress_bar.set_postfix(loss=loss.item())
+            
+        
+        # Save the model 
+        model.save_pretrained(
+            finetuned_ckpt_path.format(
+                model=model_name.split('/')[1], method=finetune_method, epoch=epoch
+            )
+        )
+    
+    writer.close()
+            
+    
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", type=str, choices=["meta-llama/Llama-3.2-1B", "google/gemma-3-1b-it"])
+    parser.add_argument("--finetune_method", type=str, choices=["sft", "lora", "qlora"])
+    parser.add_argument("--gpu_id", type=int)
+    args = parser.parse_args()
 
-# Metrics
-bleu = evaluate.load("bleu")
-rouge = evaluate.load("rouge")
-meteor = evaluate.load("meteor")
-
-def compute_metrics(eval_preds):
-    preds, labels = eval_preds
-    decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-    # Strip "Answer:" prefix if needed
-    decoded_preds = [pred.split("Answer:")[-1].strip() for pred in decoded_preds]
-    decoded_labels = [label.split("Answer:")[-1].strip() for label in decoded_labels]
-
-    bleu_score = bleu.compute(predictions=decoded_preds, references=decoded_labels)["bleu"]
-    rouge_score = rouge.compute(predictions=decoded_preds, references=decoded_labels)
-    meteor_score = meteor.compute(predictions=decoded_preds, references=decoded_labels)["meteor"]
-
-    return {
-        "bleu": bleu_score,
-        "rougeL": rouge_score["rougeL"],
-        "meteor": meteor_score
-    }
-
-# Training setup
-training_args = TrainingArguments(
-    output_dir="./results-lora",
-    per_device_train_batch_size=2,
-    per_device_eval_batch_size=2,
-    gradient_accumulation_steps=8,
-    evaluation_strategy="epoch",
-    logging_dir="./logs",
-    save_total_limit=1,
-    learning_rate=2e-4,
-    num_train_epochs=3,
-    fp16=torch.cuda.is_available(),
-    report_to="none"
-)
-
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=tokenized_ds["train"],
-    eval_dataset=tokenized_ds["validation"],
-    tokenizer=tokenizer,
-    data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
-    compute_metrics=compute_metrics,
-)
-
-# Train
-trainer.train()
+    main(args)

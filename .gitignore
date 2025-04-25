@@ -1,0 +1,14 @@
+__pycache__
+hf_model_cache/
+hf_data_cache/
+finetuned/
+data/
+data.zip
+token*
+*.ipynb
+
+*finetuned_model_*
+
+pdfs/
+
+*.zip
