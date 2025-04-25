@@ -9,3 +9,5 @@ train.py - This file contains the code for finetuning the models via LoRA, QLoRA
 eval.py - This file contains code for computing the metrics (bleu, rougel, meteor).
 
 CSE-587_Final_project.pdf - Report for the final project.
+
+Team Members - Aashrith Madasu (asm6590), Darshan Chudiwal (dsc5636), Yash Priydarshi (yvp5218)
