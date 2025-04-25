@@ -1,7 +1,6 @@
 import os
 import feedparser
 import requests
-import fitz  # PyMuPDF
 import re
 import json
 from tqdm import tqdm
